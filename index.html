@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>天火：终极进化 | 深度沉浸重构版</title>
+
+    <!-- Include GSAP for custom Target Cursor animation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Target Cursor Effect DOM -->
+    <div id="target-cursor-wrapper" class="target-cursor-wrapper">
+        <div id="target-cursor-dot" class="target-cursor-dot"></div>
+        <div class="target-cursor-corner corner-tl"></div>
+        <div class="target-cursor-corner corner-tr"></div>
+        <div class="target-cursor-corner corner-br"></div>
+        <div class="target-cursor-corner corner-bl"></div>
+    </div>
+
+    <div id="toast-container"></div>
+    <div id="total-cores-lobby">大厅总核心: 0</div>
+    <div id="speed-lines" class="overlay-layer"></div>
+    <div id="damage-overlay" class="overlay-layer"></div>
+    <div id="floating-texts" class="overlay-layer"></div>
+    <div id="action-log-container"></div>
+    <div id="double-score-hint">双倍积分！</div>
+    <div id="boss-hud" class="hidden" style="position:absolute; top:15%; left:50%; transform:translateX(-50%); z-index:12; text-align:center;">
+        <div id="boss-name" style="font-weight:900; font-size:22px; margin-bottom:6px; color:#ff4444;"></div>
+        <div class="bar-container" style="width:350px; height:14px; margin:0 auto;">
+            <div id="boss-hp-fill" class="bar-fill" style="width:100%; background:var(--damage);"></div>
+        </div>
+    </div>
+    <div id="mission-timer" class="hidden">撤离倒计时: 0s</div>
+    <div id="graze-hint" class="graze-hint-class">擦弹！</div>
+    <div id="crazy-graze-hint" class="graze-hint-class">极限擦弹！</div>
+    <div id="glass-shatter" class="overlay-layer"></div>
+
+    <div id="tutorial-ui" class="hidden" style="position:absolute; top:70%; left:50%; transform:translate(-50%, -50%); z-index:20; text-align:center; pointer-events:none; animation: toastEnter 1s forwards;">
+        <h2 style="color:var(--neon); text-shadow: 0 0 20px var(--neon);">系统初始化中...</h2>
+        <p style="font-size:20px; font-weight:bold;">[鼠标] 移动机身避障</p>
+        <p style="font-size:20px; font-weight:bold;">[空格] 锁定开火</p>
+        <p style="font-size:20px; font-weight:bold;">[Q键] 释放脉冲清障 (需满能)</p>
+    </div>
+
+    <section id="hud" class="overlay-layer hidden">
+        <div class="stats-panel">
+            <div class="stat-row"><span class="stat-label">装甲</span><span id="hp-val" class="stat-value hp-value">100</span></div>
+            <div class="bar-container"><div id="shield-fill" class="bar-fill" style="width:100%"></div></div>
+            <div class="stat-row"><span class="stat-label">能量</span><span id="energy-val" class="stat-value energy-value">100</span></div>
+            <div class="bar-container"><div id="energy-fill" class="bar-fill" style="width:100%"></div></div>
+            <div class="stat-row"><span class="stat-label">过载</span><span id="overload-val" class="stat-value overload-value">0%</span></div>
+            <div class="bar-container"><div id="overload-fill" class="bar-fill" style="width:0%"></div></div>
+            <div class="stat-row"><span class="stat-label">状态</span><span id="invincible-val" class="stat-value" style="color:var(--invincible); font-size:16px;">就绪</span></div>
+            <div class="bar-container" style="height:4px;"><div id="invincible-fill" class="bar-fill" style="width:0%"></div></div>
+            <div class="stat-row mt-20"><span class="stat-label">连击</span><span id="combo-val" class="stat-value" style="color:var(--gold); font-size:20px; transition: transform 0.1s;">x0</span></div>
+            <div class="bar-container" style="margin-top:4px;"><div id="combo-fill" class="bar-fill" style="width:0%; background:var(--gold); box-shadow:0 0 10px var(--gold);"></div></div>
+        </div>
+        <div class="score-panel">
+            <div id="heat-rank" style="font-size:42px; font-weight:900; letter-spacing:2px; transition:color 0.3s, text-shadow 0.3s;">D</div>
+            <div id="mode-val" class="mode-label">普通模式</div>
+            <div class="score-label">总得分</div><div id="score-val" class="score-value">0</div>
+            <div class="score-label mt-20">本局核心</div><div id="gold-val" class="gold-value">0</div>
+        </div>
+
+        <div id="q-skill-wrapper">
+            <svg width="60" height="60" viewBox="0 0 60 60">
+                <polygon points="30,0 60,60 0,60" fill="rgba(0,0,0,0.6)" stroke="var(--energy)" stroke-width="2"/>
+                <clipPath id="q-clip"><polygon points="30,0 60,60 0,60" /></clipPath>
+                <rect id="q-skill-fill" x="0" y="60" width="60" height="60" fill="var(--energy)" clip-path="url(#q-clip)"/>
+            </svg>
+            <div class="skill-text-label" style="color:var(--energy);">[Q] 脉冲</div>
+        </div>
+
+        <div id="e-skill-wrapper">
+            <div id="e-skill-ui">
+                <div id="e-skill-fill"></div>
+            </div>
+            <div id="e-skill-text" class="skill-text-label" style="color:var(--neon);">[E] 技能</div>
+        </div>
+    </section>
+
+    <!-- UI Overlay Panels -->
+    <section id="overlay" class="overlay-layer flex-center">
+        <!-- Interactive Ring Background -->
+        <div class="ring-container" id="interaction-canvas">
+            <div class="ring-wrapper"><div class="ring"></div></div>
+            <div class="ring-wrapper"><div class="ring"></div></div>
+            <div class="ring-wrapper"><div class="ring"></div></div>
+            <div class="ring-wrapper"><div class="ring"></div></div>
+            <div class="ring-wrapper"><div class="ring"></div></div>
+            <div class="ring-wrapper"><div class="ring"></div></div>
+            <div class="ring-wrapper"><div class="ring"></div></div>
+            <div class="ring-wrapper"><div class="ring"></div></div>
+        </div>
+
+        <!-- 主菜单 (Sci-Fi Remastered) -->
+        <article id="menu" class="panel" style="background: transparent; border: none; box-shadow: none; max-width: 1200px; padding: 0;">
+            <button class="btn-danger cursor-target" onclick="window.clearGameData()" style="position: absolute; top: 20px; right: 20px; bottom: auto; left: auto; z-index: 10;">[危险] 清除数据</button>
+            <div class="flex-row flex-wrap txt-left" style="gap:40px; align-items: stretch;">
+
+                <!-- Left Column -->
+                <div style="flex:1.5; min-width:300px; display: flex; flex-direction: column; justify-content: center; position: relative; z-index: 2;">
+                    <h1 style="font-size: clamp(3rem, 5vw, 5.5rem); font-weight: 900; letter-spacing: -0.05em; color: #fff; margin-bottom: 1rem; line-height: 1; text-align: left; text-transform: uppercase;">
+                        REDEFINE <br/> <span style="color: var(--neon); text-shadow: 0 0 20px rgba(0,229,255,0.4);">DIMENSION</span>
+                    </h1>
+                    <p style="color: #ababab; font-size: clamp(0.9rem, 1.5vw, 1.1rem); max-width: 36rem; text-transform: uppercase; font-weight: 300; letter-spacing: 0.05em; margin-bottom: 2.5rem; line-height: 1.4;">
+                        Deep immersive interface for the interstellar digital explorer.
+                    </p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;">
+                        <button class="btn-primary cursor-target" onclick="window.showModeSelect()" style="padding: 15px 40px; font-size: 1.25rem; font-weight: bold; margin:0; border-radius: 6px; box-shadow: 0 0 30px rgba(0,229,255,0.25); background: linear-gradient(135deg, rgba(0,229,255,0.2), rgba(0,0,0,0)); border-color: var(--neon);">INITIALIZE</button>
+                        <button class="cursor-target" onclick="window.showPanel('shop-ui')" style="padding: 15px 30px; font-weight: bold; margin:0; border-radius: 6px;">机库</button>
+                        <button class="cursor-target" onclick="window.showPanel('achievements-ui')" style="padding: 15px 30px; font-weight: bold; margin:0; border-radius: 6px;">成就</button>
+                        <button class="cursor-target" onclick="window.showPanel('settings-ui')" style="padding: 15px 30px; font-weight: bold; margin:0; border-radius: 6px;">设置</button>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div style="flex:1; min-width:300px; display: flex; flex-direction: column; gap: 20px; z-index: 2; pointer-events: auto;">
+                    <!-- Leaderboard -->
+                    <div style="background: rgba(25, 25, 25, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 25px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);">
+                        <h3 style="color:var(--gold); border-bottom:1px solid rgba(255,215,0,0.3); padding-bottom:10px; margin-top:0; text-transform: uppercase; font-weight: bold; font-size: 1.1rem; letter-spacing: 1px;">👑 Hero Board</h3>
+                        <div id="main-leaderboard-list"></div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div style="background: rgba(25, 25, 25, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 25px; line-height: 1.8; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);">
+                        <h3 style="color:var(--neon); margin-top:0; border-bottom:1px solid rgba(0,229,255,0.3); padding-bottom:10px; text-transform: uppercase; font-weight: bold; font-size: 1.1rem; letter-spacing: 1px;">Terminal Protocols</h3>
+                        <p style="margin:0; color: #ababab; font-size: 0.9rem;">
+                            ▶ <b style="color: #fff;">基础操作</b>：鼠标位移避障 | 空格射击 | 长按左键加速 | ESC 暂停<br>
+                            ▶ <b style="color: #fff;">得分机制</b>：排行榜以生存时间为王！打碎高血陨石、拾取核心可获海量加分！<br>
+                            ▶ <b style="color: #fff;">成长法则</b>：战中得分解锁随机天赋，通过不断战斗打造专属强力流派！
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <article id="mode-select-ui" class="panel hidden" style="max-width: 800px;">
+            <h1>选择作战模式</h1>
+            <h3 class="txt-left" style="color:var(--neon); border-bottom:1px solid; padding-bottom:5px;">战役冒险</h3>
+            <div class="flex-row flex-wrap" style="justify-content:center; margin-bottom:20px;">
+                <button class="cursor-target" onclick="window.startGame('rookie')" title="Multiplier: 1.0x | Max Spd: 2.0x | Low Density | Safety I-Frame">新手</button>
+                <button class="cursor-target" onclick="window.startGame('novice')" title="Multiplier: 1.3x | Max Spd: 2.7x | Normal Density">普通</button>
+                <button class="cursor-target" onclick="window.startGame('elite')" title="Multiplier: 1.8x | Max Spd: 3.0x | High Density | Brief Stun">精英</button>
+                <button class="cursor-target" onclick="window.startGame('ace')" title="Multiplier: 2.5x | Max Spd: 3.5x | Extreme Density | Hard Stun">王牌</button>
+            </div>
+            <h3 class="txt-left" style="color:var(--damage); border-bottom:1px solid; padding-bottom:5px;">无尽炼狱</h3>
+            <button class="cursor-target" onclick="window.startGame('endless')" style="width:100%; border-color:var(--damage); color:var(--damage);">启动无尽协议</button>
+            <p style="font-size:12px; color:#aaa; margin-top:5px; margin-bottom:20px;">无限制。速度、伤害和障碍密度无限按比例提升，直到机体坠毁。</p>
+            <h3 class="txt-left" style="color:var(--gold); border-bottom:1px solid; padding-bottom:5px;">特殊任务 (限时30秒)</h3>
+            <div class="flex-row">
+                <button class="cursor-target" id="btn-super-core" onclick="window.startGame('super_core')" style="flex:1; border-color:var(--gold); color:var(--gold);">超级核心</button>
+                <button class="cursor-target" id="btn-sweeper" onclick="window.startGame('sweeper')" style="flex:1; border-color:var(--energy); color:var(--energy);">清道夫</button>
+            </div>
+            <p style="font-size:12px; color:#aaa; margin-top:5px;">解锁条件：单局得分达到 20,000。特殊模式不计入排行榜记录。</p>
+            <button class="mt-30 cursor-target" onclick="window.showPanel('menu')">返回主界面</button>
+        </article>
+
+        <article id="roguelike-ui" class="panel hidden" style="max-width:800px; z-index: 30;">
+            <h1 style="color:var(--gold);">系统强化模块掉落</h1>
+            <p>指挥官，请选择一项进化分支加载至机体：</p>
+            <div id="rl-cards" class="rl-cards-container"></div>
+            <div class="mt-30" style="padding-top:20px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--gold); font-size:18px; font-weight:bold;">当前持有核心: <span id="rl-current-cores">0</span></span>
+                <button class="cursor-target" id="btn-reroll" onclick="window.gameInstance && window.gameInstance.rerollTalents()" style="border-color:var(--neon); color:var(--neon);">重置系统芯片 (-5核心)</button>
+            </div>
+        </article>
+
+        <article id="pause-ui" class="panel hidden" style="max-width:700px;">
+            <h1>系统已暂停</h1>
+            <div class="flex-row txt-left mt-20">
+                <div style="flex:1; background:rgba(255,255,255,0.05); padding:15px; border-radius:8px;">
+                    <h3 style="color:var(--neon); margin-top:0;">战时机体状态</h3>
+                    <div id="pause-stats" style="font-size:14px; line-height:1.8; color:#ccc;"></div>
+                </div>
+                <div style="flex:1; background:rgba(255,255,255,0.05); padding:15px; border-radius:8px; max-height:250px; overflow-y:auto;">
+                    <h3 style="color:var(--energy); margin-top:0;">已载入模块</h3>
+                    <div id="pause-talents" style="font-size:14px; line-height:1.6;">无</div>
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+                <button class="cursor-target" onclick="window.gameInstance && window.gameInstance.togglePause()">恢复协议</button>
+                <button class="cursor-target" onclick="window.gameInstance && window.gameInstance.quitGame()" style="border-color:var(--damage); color:var(--damage);">放弃任务</button>
+            </div>
+        </article>
+
+        <article id="game-over" class="panel hidden">
+            <h1 id="end-title" style="color:var(--damage); text-shadow: 0 0 20px var(--damage);">机体严重受损</h1>
+            <div id="final-new-highscore" style="display:none; color:var(--gold); font-size:24px; font-weight:900; animation: pulseGold 1s infinite; margin:8px 0;">新高分记录！</div>
+            <h2 id="final-time" style="color:var(--neon); font-size:40px; margin: 10px 0;">存活时间: 0.0s</h2>
+            <h3 id="final-score" style="color:#fff; font-size:24px; margin-top:0;">综合得分: 0</h3>
+            <p id="final-stats" style="font-size: 18px;">战局核心: 0 | 最高连击: 0</p>
+            <p id="final-cause" style="font-size:16px; color:var(--damage); margin-top:8px;"></p>
+            <div id="final-talents-recap" style="margin-top:15px; text-align:left; max-height:150px; overflow-y:auto; padding:10px; background:rgba(255,255,255,0.03); border-radius:8px;">
+                <div style="color:var(--neon); font-weight:bold; margin-bottom:6px;">已载入模块:</div>
+                <div id="final-talents-list" style="font-size:13px; line-height:1.6; color:#ccc;"></div>
+            </div>
+            <div style="display:flex; gap:15px; justify-content:center; margin-top:20px;">
+                <button class="mt-20 cursor-target" onclick="window.showPanel('menu')">返回主界面</button>
+                <button class="mt-20 cursor-target" onclick="window.quickRetry()" style="border-color:var(--neon); color:var(--neon);">再次出击</button>
+            </div>
+        </article>
+
+        <article id="shop-ui" class="panel hidden">
+            <h1>机库</h1>
+            <div class="flex-row flex-wrap txt-left">
+                <div style="flex:1; min-width:300px;">
+                    <h3 style="color:var(--neon); border-bottom:1px solid; padding-bottom:5px;">局外基础装甲</h3>
+                    <div class="upgrade-row"><span>装甲 (基础血量+)</span><span id="armor-lvl">等级 0</span><button class="upgrade-btn cursor-target" data-upgrade="armor">升级</button></div>
+                    <div class="upgrade-row"><span>引擎 (推进能耗-)</span><span id="engine-lvl">等级 0</span><button class="upgrade-btn cursor-target" data-upgrade="engine">升级</button></div>
+                    <div class="upgrade-row"><span>武器 (开火能耗-)</span><span id="weapon-lvl">等级 0</span><button class="upgrade-btn cursor-target" data-upgrade="weapon">升级</button></div>
+                    <div class="upgrade-row"><span style="color:var(--gold);">磁吸 (常驻吸取金币)</span><span id="magnet-lvl">x 0</span><button class="upgrade-btn cursor-target" data-upgrade="magnet">购买 (20)</button></div>
+                </div>
+                <div style="flex:1; min-width:300px;">
+                    <h3 style="color:var(--neon); border-bottom:1px solid; padding-bottom:5px;">机甲选择与技能</h3>
+                    <div class="mech-row active cursor-target" data-mech="default"><span>默认 - [过载射击] 穿透散弹</span><span>已解锁</span></div>
+                    <div class="mech-row yellow cursor-target" data-mech="heavy"><span>重装 - [铁壁] 减伤减速</span><span id="heavy-unlock">解锁 (20)</span></div>
+                    <div class="mech-row purple cursor-target" data-mech="assassin"><span>刺客 - [暗影步] 瞬移无敌</span><span id="assassin-unlock">解锁 (20)</span></div>
+                </div>
+            </div>
+            <button class="mt-30 cursor-target" onclick="window.showPanel('menu')">返回</button>
+        </article>
+
+        <article id="achievements-ui" class="panel hidden" style="max-width:600px;">
+            <h1>里程碑与奖励</h1>
+            <div id="achievements-list" class="txt-left" style="max-height:400px; overflow-y:auto; padding-right:10px;"></div>
+            <button class="mt-20 cursor-target" onclick="window.showPanel('menu')">返回</button>
+        </article>
+
+        <article id="settings-ui" class="panel hidden" style="max-width:600px;">
+            <h1>设置</h1>
+            <div class="upgrade-row"><span>音乐音量: <span id="val-bgmvol" style="color:var(--neon)"></span></span><input type="range" class="cursor-target" id="cfg-bgmvol" min="0" max="1.0" step="0.1" oninput="document.getElementById('val-bgmvol').innerText=this.value"></div>
+            <div class="upgrade-row"><span>障碍基础密度: <span id="val-density" style="color:var(--neon)"></span></span><input type="range" class="cursor-target" id="cfg-density" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('val-density').innerText=this.value+'x'"></div>
+            <div class="upgrade-row"><span>飞船基础速度: <span id="val-basespeed" style="color:var(--neon)"></span></span><input type="range" class="cursor-target" id="cfg-basespeed" min="0.2" max="1.5" step="0.1" oninput="document.getElementById('val-basespeed').innerText=this.value"></div>
+            <div class="upgrade-row"><span>擦弹判定距离: <span id="val-grazedist" style="color:var(--neon)"></span></span><input type="range" class="cursor-target" id="cfg-grazedist" min="0.5" max="4.0" step="0.1" oninput="document.getElementById('val-grazedist').innerText=this.value"></div>
+            <div class="upgrade-row"><span>鼠标灵敏度: <span id="val-mouse" style="color:var(--neon)"></span></span><input type="range" class="cursor-target" id="cfg-mouse" min="1" max="30" step="1" oninput="document.getElementById('val-mouse').innerText=this.value"></div>
+            <div class="upgrade-row"><span>隧道大小: <span id="val-tunnel" style="color:var(--neon)"></span></span><input type="range" class="cursor-target" id="cfg-tunnel" min="15" max="35" step="1" oninput="document.getElementById('val-tunnel').innerText=this.value"></div>
+            <button class="mt-20 cursor-target" onclick="window.saveSettings()" style="border-color:var(--energy); color:var(--energy);">保存并返回</button>
+        </article>
+    </section>
+
+    <!-- ThreeJS & PostProcessing libs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+    <!-- Application Scripts (order matters for dependencies) -->
+    <script src="js/config.js"></script>
+    <script src="js/dom-cache.js"></script>
+    <script src="js/cursor.js"></script>
+    <script src="js/background.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/sfx.js"></script>
+    <script src="js/ui-helper.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
